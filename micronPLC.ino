@@ -41,6 +41,7 @@ void setup() {
     command = command.substring(index + 2);  //
   }
   cmdArray[posCommand] = "xxxx";  //　exit code
+  posCommand = 0;
 }
 
 void loop() {
