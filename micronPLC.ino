@@ -3,51 +3,65 @@
 //                        "OUT 8 \r\n";
 
 const String Command = "LD 3 \r\n"
-                       "AND 2 \r\n"
-                       "OUT 8 \r\n"
                        "AND 4 \r\n"
+                       "OUT 8 \r\n"
                        "AND 5 \r\n"
-                       "OUT 8 \r\n";
+                       "OR 6 \r\n"
+                       "OUT 9 \r\n";
 
 int Acc = 0;
 int posCommand = 0;
 bool runflag = false;  //if power on auto start . runflag should be true
 String TermString = "";
 
+//IO location align  STM(bluepill) can not specify direct pin num
+//int PIN[] ={-1,-1,-1,PB3,PB4,PB5,PB6,PB7
+//             ,PB8,PB9,PB10 };
+
+// test for Arduino mega etc..
+int PIN[] = { -1, -1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+
 String cmdArray[10];  //translated commands
-int cmdArg[10];    //argument of translated commands
+int cmdArg[10];       //argument of translated commands
 //string cmdArg2[10];    //argument of translated commands
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   for (int i = 2; i <= 7; i++) {
-    pinMode(i, INPUT_PULLUP);
+    //pinMode(i, INPUT_PULLUP);
+    pinMode(PIN[i], INPUT_PULLUP);
   }
-  for (int i = 8; i <= 11; i++) {
-    pinMode(i, OUTPUT);
-    digitalWrite(i, LOW);
+  for (int i = 8; i <= 10; i++) {
+    //pinMode(i, OUTPUT);
+    //digitalWrite(i, LOW);
+    pinMode(PIN[i], OUTPUT);
+    digitalWrite(PIN[i], LOW);
   }
 
-//Translate Command strings and store to arrays
+  //Translate Command strings and store to arrays
   String command = Command;
   posCommand = 0;
-  while(command.indexOf("\r\n") != -1) {
+  while (command.indexOf("\r\n") != -1) {
     int index = command.indexOf("\r\n");
-  //上２行 こう書いてもいい？
-  //while(int index = command.indexOf("\r\n") != -1) {
+    //上２行 こう書いてもいい？
+    //while(int index = command.indexOf("\r\n") != -1) {
     String line = command.substring(0, index);
-    setCommand2Array(line); //ignore error commannd 
+    setCommand2Array(line);                  //ignore error commannd
     command = command.substring(index + 2);  //
   }
   cmdArray[posCommand] = "xxxx";  //　exit code
   posCommand = 0;
+
+  Serial.println("Start microPLC");
+  runflag = true;
 }
 
 void loop() {
   if (Serial.available()) {
     char c = Serial.read();
-    if (c == "\n") {
+    if (c == '\n') {
       doTermCommand(TermString);
       TermString = "";
     } else {
@@ -56,6 +70,7 @@ void loop() {
   }
   if (runflag) {
     doCommand();
+    monitor();
   }
 }
 
@@ -65,8 +80,11 @@ void doTermCommand(String str) {
     runflag = true;
     posCommand = 0;
     Acc = 0;
+
+    Serial.println("Run");
   } else if (str == "S") {
     runflag = false;
+    Serial.println("Stop");
   }
 }
 
@@ -79,23 +97,23 @@ String doCommand() {
   if (cmd == "LD") {
     Acc = digitalRead(arg);  // Hi level mean Sw On.    if Hi level mean Sw Off..Should be reverse the logic.
   } else if (cmd == "AND") {
-    Acc = Acc && digitalRead(arg);
+    Acc = Acc && digitalRead(PIN[arg]);
   } else if (cmd == "OR") {
-    Acc = Acc || digitalRead(arg);
+    Acc = Acc || digitalRead(PIN[arg]);
   } else if (cmd == "NOT") {
-    Acc = !digitalRead(arg);
+    Acc = !digitalRead(PIN[arg]);
   } else if (cmd == "NAND") {
-    Acc = !(Acc && digitalRead(arg));
+    Acc = !(Acc && digitalRead(PIN[arg]));
   } else if (cmd == "NOR") {
-    Acc = !(Acc || digitalRead(arg));
+    Acc = !(Acc || digitalRead(PIN[arg]));
   } else if (cmd == "OUT") {
-    digitalWrite(arg, Acc ? HIGH : LOW);  //Hi mean On
+    digitalWrite(PIN[arg], Acc ? HIGH : LOW);  //Hi mean On
   } else if (cmd == "NOUT") {
-    digitalWrite(arg, Acc ? LOW : HIGH);
+    digitalWrite(PIN[arg], Acc ? LOW : HIGH);
   } else if (cmd == "xxxx") {
     posCommand = 0;
     Acc = 0;
-    return;
+    return cmd;
   }
 }
 
@@ -123,4 +141,17 @@ bool setCommand2Array(String line) {  // if error return true
       return true;
     }
   }
+}
+
+void monitor() {
+  for (int i = 2; i <= 7; i++) {
+    Serial.print(digitalRead(PIN[i]));
+  }
+  Serial.print(" ");
+
+  for (int i = 8; i <= 10; i++) {
+    Serial.print(digitalRead(PIN[i]));
+  }
+
+  Serial.println();
 }
